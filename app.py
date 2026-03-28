@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pypdfium2
 import torch
 from nougat import NougatModel
-from nougat.postprocessing import markdown_compatible, close_envs
+from nougat.postprocessing import markdown_compatible
 from nougat.utils.dataset import ImageDataset
 from nougat.utils.checkpoint import get_checkpoint
 from nougat.dataset.rasterize import rasterize_paper
@@ -127,25 +127,10 @@ async def predict(
     for idx, sample in tqdm(enumerate(dataloader), total=len(dataloader)):
         if sample is None:
             continue
-        model_output = model.inference(image_tensors=sample)
+        model_output = model.inference(image_tensors=sample, early_stopping=False)
         for j, output in enumerate(model_output["predictions"]):
-            if model_output["repeats"][j] is not None:
-                if model_output["repeats"][j] > 0:
-                    disclaimer = "\n\n+++ ==WARNING: Truncated because of repetitions==\n%s\n+++\n\n"
-                else:
-                    disclaimer = (
-                        "\n\n+++ ==ERROR: No output for this page==\n%s\n+++\n\n"
-                    )
-                rest = close_envs(model_output["repetitions"][j]).strip()
-                if len(rest) > 0:
-                    disclaimer = disclaimer % rest
-                else:
-                    disclaimer = ""
-            else:
-                disclaimer = ""
-
             predictions[pages.index(compute_pages[idx * BATCHSIZE + j])] = (
-                markdown_compatible(output) + disclaimer
+                markdown_compatible(output)
             )
 
     (save_path / "pages").mkdir(parents=True, exist_ok=True)
